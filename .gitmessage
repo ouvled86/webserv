@@ -1,0 +1,28 @@
+# ~/.gitmessage
+<type>(<scope>): <subject>
+# |<----  Max 50 characters  ---->|
+
+# Explain what and why (not how):
+# |<----   Max 72 characters   ---->|
+
+# --- COMMIT END ---
+# Type can be:
+#   feat     (new feature)
+#   fix      (bug fix)
+#   refactor (code change without feat/fix)
+#   style    (formatting, missing semi colons, etc)
+#   docs     (changes to documentation)
+#   test     (adding/updating tests)
+#   chore    (updating build tasks, configs, etc)
+#   perf     (performance improvement)
+#   build    (build system changes)
+#   remove   (removing code/files)
+# --------------------
+# Scope can be anything specifying place of the commit:
+#   config, parser, server, socket, cgi, etc.
+# --------------------
+# Subject line rules:
+#   - Use imperative mood ("add" not "added")
+#   - Don't capitalize first letter
+#   - No period at the end
+# --------------------

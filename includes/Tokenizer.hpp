@@ -1,29 +1,42 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   webserv.hpp                                        :+:      :+:    :+:   */
+/*   Tokenizer.hpp                                      :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/10/03 10:31:10 by ouel-bou          #+#    #+#             */
-/*   Updated: 2025/10/14 00:57:50 by ouvled           ###   ########.fr       */
+/*   Created: 2025/10/12 20:52:32 by ouvled            #+#    #+#             */
+/*   Updated: 2025/10/14 01:01:53 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef WEBSERV_HPP
-# define WEBSERV_HPP
-# include <vector>
-# include <iostream>
+#ifndef TOKENIZER_HPP
+# define TOKENIZER_HPP
 # include <string>
 # include <fstream>
-# include <exception>
-# include <sstream>
-# include <map>
-# include "Config.hpp"
-# include "ConfigParser.hpp"
-# include "ParseException.hpp"
 # include "Token.hpp"
-# include "Tokenizer.hpp"
+# include "ParseException.hpp"
 
+class Tokenizer
+{
+private:
+	std::string	config;
+	std::string	configPath;
+	size_t		pos;
+	size_t		posInLine;
+	int			line;
+public:
+	Tokenizer();
+	Tokenizer(char *config_path);
+	Token		getNextToken();
+	std::string	&getConfig();
+private:
+	void		skipWhiteSpaces();
+	Token		parseString();
+	Token		parseNumber();
+	Token		parseWord();
+};
+
+std::string	readConfig(std::ifstream &file);
 
 #endif

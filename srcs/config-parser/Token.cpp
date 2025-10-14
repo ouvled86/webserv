@@ -1,21 +1,43 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   main.cpp                                           :+:      :+:    :+:   */
+/*   Token.cpp                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/10/03 10:31:14 by ouel-bou          #+#    #+#             */
-/*   Updated: 2025/10/14 01:04:07 by ouvled           ###   ########.fr       */
+/*   Created: 2025/10/14 00:26:41 by ouvled            #+#    #+#             */
+/*   Updated: 2025/10/14 01:03:43 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../includes/ConfigParser.hpp"
+#include "../../includes/Token.hpp"
 
-int main(int argc, char **argv)
+Token::Token()
 {
-	if (argc != 2)
-		return 1;
-		// error
-	ConfigParser	parser = ConfigParser(argv[1]);
+
+}
+
+Token::Token(std::string content, TokenType type, size_t posInLine, int line) : _content(content), _type(type), _posInLine(posInLine), _line(line)
+{
+	
+}
+
+std::string	&Token::getContent()
+{
+	return _content;
+}
+
+TokenType	Token::getType()
+{
+	return _type;
+}
+
+size_t		Token::getPosInLine()
+{
+	return _posInLine;
+}
+
+int			Token::getLine()
+{
+	return _line;
 }

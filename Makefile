@@ -32,7 +32,12 @@ endif
 # Find all .cpp files in the current directory automatically
 # Example: if current dir has main.cpp, HumanA.cpp, HumanB.cpp
 # then SRCS becomes main.cpp HumanA.cpp HumanB.cpp
-SRCDIR := ./srcs
+SRCDIR := ./srcs ./srcs/config-parser
+
+# Tell make where to look for %.cpp prerequisites. This lets the pattern rule
+# below use a plain "%.cpp" prerequisite and still find sources in any of the
+# directories listed in $(SRCDIR).
+vpath %.cpp $(SRCDIR)
 
 SRCFILES := $(foreach dir,$(SRCDIR),$(wildcard $(dir)/*.cpp))
 
@@ -82,8 +87,10 @@ DEPENDS := $(patsubst %.o,%.d,$(OBJFILES))
 # This ensures Make knows about header file dependencies
 -include $(DEPENDS)
 
-# Rule to compile .cpp files into .o files
-$(OBJDIR)/%.o : $(SRCDIR)/%.cpp Makefile
+# Rule to compile .cpp files into .o files. With the vpath above we can use a
+# plain "%.cpp" prerequisite and make will search the directories in
+# $(SRCDIR) for the matching source file.
+$(OBJDIR)/%.o : %.cpp Makefile
 # Create output directory if it doesn't exist
 	@mkdir -p $(OBJDIR)
 # Call the tidy_compilation function with the compile command
@@ -100,7 +107,6 @@ $(OBJDIR)/%.o : $(SRCDIR)/%.cpp Makefile
 define tidy_compilation
 	@printf "%s\e[K\n" "$(1)"
 	# Execute the actual compilation command (passed as $1)
-	@echo test
 	@$(1)
 	# Use ANSI escape codes to clear the previous line
 	# \e[A: Move cursor up one line

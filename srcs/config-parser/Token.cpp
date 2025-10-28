@@ -22,22 +22,22 @@ Token::Token(std::string content, TokenType type, size_t posInLine, int line) : 
 	
 }
 
-std::string	&Token::getContent()
+const std::string	&Token::getContent() const
 {
 	return _content;
 }
 
-TokenType	Token::getType()
+TokenType	Token::getType() const
 {
 	return _type;
 }
 
-size_t		Token::getPosInLine()
+size_t		Token::getPosInLine() const
 {
 	return _posInLine;
 }
 
-int			Token::getLine()
+int			Token::getLine() const
 {
 	return _line;
 }

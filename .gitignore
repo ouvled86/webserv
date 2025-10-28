@@ -1,2 +1,5 @@
 # Ignore all object files and build artifacts
-/obj/
+/obj
+/webserv
+/.vscode
+/.idea

@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/09 23:10:27 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/14 01:01:44 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/10/21 15:47:45 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,18 +27,17 @@ enum	TokenType
 
 class	Token
 {
-private:
+public:
 	std::string	_content;
 	TokenType	_type;
 	size_t		_posInLine;
 	int			_line;
-public:
 	Token();
 	Token(std::string content, TokenType type, size_t posInLine, int line);
-	std::string	&getContent();
-	TokenType	getType();
-	size_t		getPosInLine();
-	int			getLine();
+	const std::string	&getContent() const;
+	TokenType			getType() const;
+	size_t				getPosInLine() const;
+	int					getLine() const;
 };
 
 #endif

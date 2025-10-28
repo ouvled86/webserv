@@ -6,16 +6,16 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/04 19:47:00 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/14 01:03:34 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/10/28 21:55:22 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../includes/ConfigParser.hpp"
 
-ConfigParser::ConfigParser(char *conf_file) : _pState(GLOBAL_STATE)
+ConfigParser::ConfigParser(char *configFile) : _pState(GLOBAL_STATE), _configFileName(configFile)
 {
-	_tokenizer = Tokenizer(conf_file);
-	_config = _tokenizer.getConfig();
+	_tokenizer = Tokenizer(configFile);
+	_configContent = _tokenizer.getConfig();
 	Token	holder;
 	while ((holder = _tokenizer.getNextToken()).getType() != T_EOF)
 	{
@@ -24,12 +24,372 @@ ConfigParser::ConfigParser(char *conf_file) : _pState(GLOBAL_STATE)
 	}
 }
 
-ConfigParser::~ConfigParser()
+Config		ConfigParser::parseConfig()
 {
-	
+	std::vector<Token>::const_iterator	it = _tokens.begin();
+	while (it != _tokens.end())
+	{
+		switch (_pState)
+		{
+			case GLOBAL_STATE:
+				handleGlobalState(it);
+				break;
+			case SERVER_STATE:
+				handleServerState(it);
+				break;
+			case LOCATION_STATE:
+				handleLocationState(it);
+				break;
+		}
+	}
+	if (_config.configs.empty())
+		throw ParseException("No server blocks found in configuration file", _configFileName, 0, 0);
+	return (_config);
 }
 
-// Config		ConfigParser::parseConfig()
-// {
-	
-// }
+void ConfigParser::handleGlobalState(std::vector<Token>::const_iterator &it)
+{
+	Token	token = *it;
+	if (token._type == T_WORD && token._content == "server")
+	{
+		++it;
+		expectToken(it, T_LEFT_BRACE, "Expected '{' after 'server'");
+		_currentServer = ServerConfig();
+		_pState = SERVER_STATE;
+	}
+	else
+		throw ParseException("Expected 'server' keyword", _configFileName, token._posInLine, token._line);
+}
+
+void ConfigParser::handleServerState(std::vector<Token>::const_iterator &it)
+{
+	Token		token = *it;
+	if (token._type == T_RIGHT_BRACE)
+	{
+		_config.configs.push_back(_currentServer);
+		_pState = GLOBAL_STATE;
+		++it;
+		return ;
+	}
+	if (token._type != T_WORD)
+		throw ParseException("Expected directive or '}'", _configFileName, token._posInLine, token._line);
+	std::string	directive = token._content;
+	++it;
+	switch (getServerDirective(directive))
+	{
+		case D_SERVER_LISTEN:
+			parseListenDirective(it);
+			break;
+		case D_SERVER_ROOT:
+			parseServerRootDirective(it);
+			break;
+		case D_SERVER_ERROR_PAGE:
+			parseErrorPageDirective(it);
+			break;
+		case D_SERVER_CLIENT_MAX_BODY_SIZE:
+			parseServerBodySizeDirective(it);
+			break;
+		case D_SERVER_LOCATION:
+			if (it == _tokens.end() || it->_type != T_WORD)
+				throw ParseException("Expected location path after 'location'", _configFileName, token._posInLine, token._line);
+			_currentLocation = LocationConfig();
+			_currentLocation.path = it->_content;
+			++it;
+			expectToken(it, T_LEFT_BRACE, "Expected '{' after location path");
+			_pState = LOCATION_STATE;
+			break;
+		case D_SERVER_UNKNOWN:
+			throw ParseException("Unknown server directive: " + directive, _configFileName, token._posInLine, token._line);
+		default:
+			throw ParseException("Unexpected directive in server context: " + directive, _configFileName, token._posInLine, token._line);
+	}
+}
+
+void ConfigParser::handleLocationState(std::vector<Token>::const_iterator &it)
+{
+	Token		token = *it;
+	if (token._type == T_RIGHT_BRACE)
+	{
+		_currentServer.locations.push_back(_currentLocation);
+		_pState = SERVER_STATE;
+		++it;
+		return ;
+	}
+	if (token._type != T_WORD)
+		throw ParseException("Expected directive or '}'", _configFileName, token._posInLine, token._line);
+	std::string	directive = token._content;
+	++it;
+	switch (getLocationDirective(directive))
+	{
+		case D_LOC_ROOT:
+			parseLocationRootDirective(it);
+			break;
+		case D_LOC_INDEX:
+			parseIndexDirective(it);
+			break;
+		case D_LOC_ALLOW_METHODS:
+			parseAllowMethodsDirective(it);
+			break;
+		case D_LOC_AUTOINDEX:
+			parseAutoIndexDirective(it);
+			break;
+		case D_LOC_UPLOAD_ENABLE:
+			parseUploadEnableDirective(it);
+			break;
+		case D_LOC_UPLOAD_STORE:
+			parseUploadStoreDirective(it);
+			break;
+		case D_LOC_RETURN:
+			parseReturnDirective(it);
+			break;
+		case D_LOC_CGI_EXTENSION:
+			parseCgiExtensionDirective(it);
+			break;
+		case D_LOC_CLIENT_MAX_BODY_SIZE:
+			parseLocationBodySizeDirective(it);
+			break;
+		case D_LOC_UNKNOWN:
+			throw ParseException("Unknown location directive: " + directive, _configFileName, token._posInLine, token._line);
+		default:
+			throw ParseException("Unexpected directive in location context: " + directive, _configFileName, token._posInLine, token._line);
+	}
+}
+
+void	ConfigParser::parseListenDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || (it->_type != T_WORD && it->_type != T_NUMBER))
+		throw ParseException("Expected host and/or port after server's listen directive", _configFileName, it->_posInLine, it->_line);
+	std::string	tokenValue = it->_content;
+	if (_currentServer.firstListen)
+	{
+		_currentServer.listens.clear();
+		_currentServer.firstListen = false;
+	}
+	if (it->_type == T_WORD)
+	{
+		size_t		valueColonPos = tokenValue.find(':');
+		if (valueColonPos == std::string::npos)
+			throw ParseException("Expected colon seperating host and port in listen directive's value", _configFileName, (it - 2)->_posInLine, (it - 2)->_line);
+		std::string	host = tokenValue.substr(0, valueColonPos);
+		std::string	port = tokenValue.substr(valueColonPos + 1);
+		int			portInt = atoi(port.c_str());
+		if (portInt < 0 || portInt > 65535)
+			throw ParseException("Port: " + port + " is out of range, make sure it is between 0 and 65535", _configFileName, (it - 2)->_posInLine, (it - 2)->_line);
+		_currentServer.listens.push_back(std::make_pair(host, portInt));
+	}
+	else if (it->_type == T_NUMBER)
+	{
+		int	portInt = atoi(tokenValue.c_str());
+		if (portInt < 0 || portInt > 65535)
+			throw ParseException("Port: " + tokenValue + " is out of range, make sure it is between 0 and 65535", _configFileName, (it - 2)->_posInLine, (it - 2)->_line);
+		_currentServer.listens.push_back(std::make_pair("0.0.0.0", portInt));
+	}
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude server's listen directive");
+}
+
+void	ConfigParser::parseServerRootDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected path after server root directive", _configFileName, it->_posInLine, it->_line);
+	_currentServer.root = it->_content;
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude server's root directive");
+}
+
+void	ConfigParser::parseErrorPageDirective(std::vector<Token>::const_iterator &it)
+{
+	std::vector<int>	errorStatusCodes;
+
+	while (it != _tokens.end() && it->_type == T_NUMBER)
+	{
+		int	currentErrorStatus = atoi(it->_content.c_str());
+		if (currentErrorStatus < 100 || currentErrorStatus > 599)
+			throw ParseException(it->_content + " status code is invalid", _configFileName, it->_posInLine, it->_line);
+		errorStatusCodes.push_back(currentErrorStatus);
+		++it;
+	}
+	if (errorStatusCodes.empty())
+		throw ParseException("Expected status code(s) after error_page server's directive", _configFileName, it->_posInLine, it->_line);
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected path to error page after error_page status codes", _configFileName, it->_posInLine, it->_line);
+	std::string	pathToErrorPage = it->_content;
+	++it;
+	for (size_t i = 0; i < errorStatusCodes.size(); i++)
+		_currentServer.errorPages[errorStatusCodes[i]] = pathToErrorPage;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude server's error_page directive");
+}
+
+void	ConfigParser::parseServerBodySizeDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || (it->_type != T_WORD && it->_type != T_NUMBER))
+		throw ParseException("Expected size after server's client_max_body_size directive", _configFileName, it->_posInLine, it->_line);
+	std::string bodySize = it->_content;
+	if (it->_type == T_NUMBER)
+		_currentServer.clientMaxBodySize = atoi(bodySize.c_str());
+	else if (it->_type == T_WORD)
+		_currentServer.clientMaxBodySize = convertSize(it, bodySize);
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude server's client_max_body_size directive");
+}
+
+void	ConfigParser::parseLocationRootDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected path after location's root directive", _configFileName, it->_posInLine, it->_line);
+	_currentLocation.root = it->_content;
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's root directive");
+}
+
+void	ConfigParser::parseIndexDirective(std::vector<Token>::const_iterator &it)
+{
+	_currentLocation.indexes.clear();
+	while (it != _tokens.end() && it->_type == T_WORD)
+	{
+		_currentLocation.indexes.push_back(it->_content);
+		++it;
+	}
+	if (_currentLocation.indexes.empty())
+		throw ParseException("Expected index file(s) after location's index directive", _configFileName, it->_posInLine, it->_line);
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's index directive");
+}
+
+void	ConfigParser::parseAllowMethodsDirective(std::vector<Token>::const_iterator &it)
+{
+	_currentLocation.allowedMethods.clear();
+	while (it != _tokens.end() && it->_type == T_WORD)
+	{
+		if (it->_content == "GET" || it->_content == "POST" || it->_content == "DELETE")
+			_currentLocation.allowedMethods.push_back(it->_content);
+		else
+			throw ParseException("Unknown method " + it->_content + " found in location's allowed_methods directive", _configFileName, it->_posInLine, it->_line);
+		++it;
+	}
+	if (_currentLocation.allowedMethods.empty())
+		throw ParseException("Expected method(s) after location's allowed_methods directive", _configFileName, it->_posInLine, it->_line);
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's allowed_methods directive");
+}
+
+void	ConfigParser::parseAutoIndexDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected value after location's autoindex directive", _configFileName, it->_posInLine, it->_line);
+	if (it->_content == "on")
+		_currentLocation.autoIndex = true;
+	else if (it->_content == "off")
+		_currentLocation.autoIndex = false;
+	else
+		throw ParseException("Expected on or off value after location's autoindex directive", _configFileName, it->_posInLine, it->_line);
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's autoindex directive");
+}
+
+void	ConfigParser::parseUploadEnableDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected value after location's upload_enable directive", _configFileName, it->_posInLine, it->_line);
+	if (it->_content == "on")
+		_currentLocation.uploadPerm = true;
+	else if (it->_content == "off")
+		_currentLocation.uploadPerm = false;
+	else
+		throw ParseException("Expected on or off value after location's upload_enable directive", _configFileName, it->_posInLine, it->_line);
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's upload_enable directive");
+}
+
+void	ConfigParser::parseUploadStoreDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected path after location's upload_path directive", _configFileName, it->_posInLine, it->_line);
+	_currentLocation.uploadTo = it->_content;
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's upload_path directive");
+}
+
+void	ConfigParser::parseReturnDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_NUMBER)
+		throw ParseException("Expected status code after location's return directive", _configFileName, it->_posInLine, it->_line);
+	int	statusCode = atoi(it->_content.c_str());
+	if (statusCode < 300 || statusCode > 399)
+		throw ParseException("Invalid status code: " + it->_content + " after location's return directive", _configFileName, it->_posInLine, it->_line);
+	_currentLocation.redirectionCode = statusCode;
+	++it;
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected path after location return directive's status code", _configFileName, it->_posInLine, it->_line);
+	_currentLocation.redirectTo = it->_content;
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's return directive");
+}
+
+void	ConfigParser::parseCgiExtensionDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected cgi extension after location's cgi_extension directive", _configFileName, it->_posInLine, it->_line);
+	std::string	ext = it->_content;
+	++it;
+	if (it == _tokens.end() || it->_type != T_WORD)
+		throw ParseException("Expected binary path after location cgi_extension directive's extension", _configFileName, it->_posInLine, it->_line);
+	std::string	path = it->_content;
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's cgi_extension directive");
+	_currentLocation.cgiExtensions[ext] = path;
+}
+
+void	ConfigParser::parseLocationBodySizeDirective(std::vector<Token>::const_iterator &it)
+{
+	if (it == _tokens.end() || (it->_type != T_WORD && it->_type != T_NUMBER))
+		throw ParseException("Expected size after location's client_max_body_size directive", _configFileName, it->_posInLine, it->_line);
+	std::string bodySize = it->_content;
+	if (it->_type == T_NUMBER)
+		_currentLocation.clientMaxBodySize = atoi(bodySize.c_str());
+	else if (it->_type == T_WORD)
+		_currentLocation.clientMaxBodySize = convertSize(it, bodySize);
+	++it;
+	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's client_max_body_size directive");
+}
+
+void	ConfigParser::expectToken(std::vector<Token>::const_iterator &it, TokenType type, std::string errorMsg)
+{
+	if (it == _tokens.end())
+		throw ParseException("Unexpected end of file", _configFileName, it->_posInLine, it->_line);
+	else if (it->_type != type)
+		throw ParseException(errorMsg, _configFileName, it->_posInLine, it->_line);
+	++it;
+}
+
+size_t	ConfigParser::convertSize(std::vector<Token>::const_iterator &it, const std::string &bodySize)
+{
+	std::string	sizePart;
+	char		unitPart = '\0';
+	for (size_t i = 0; i < bodySize.size(); i++)
+	{
+		if (isdigit(bodySize[i]))
+			sizePart += bodySize[i];
+		else
+		{
+			unitPart = bodySize[i];
+			break;
+		}
+	}
+	if (sizePart.empty())
+		throw ParseException("Expected number in client_max_body_size's value", _configFileName, it->_posInLine, it->_line);
+	size_t	value = static_cast<size_t>(atoi(sizePart.c_str()));
+	switch (unitPart)
+	{
+		case 'K':
+			value *= 1024;
+			break;
+		case 'M':
+			value *= 1024 * 1024;
+			break;
+		case 'G':
+			value *= 1024 * 1024 * 1024;
+			break;
+		default:
+			throw ParseException("Unknown unit in client_max_body_size's value", _configFileName, it->_posInLine, it->_line);
+	}
+	return (value);
+}

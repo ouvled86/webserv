@@ -90,7 +90,7 @@ log: ./logs/server.log
 
 ### Code Style
 
-- Follow the [NORM.md](./NORM.md) for code style and commit requirements.
+- Follow the [CODING_STANDARDS.md](./README_DOCS/CODING_STANDARDS.md) for code style and commit requirements.
 - Use the provided pre-commit hooks for consistency.
 
 

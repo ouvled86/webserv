@@ -31,6 +31,7 @@ public:
 	Token		getNextToken();
 	std::string	&getConfig();
 private:
+	bool		isValidDigit();
 	void		skipWhiteSpaces();
 	Token		parseString();
 	Token		parseNumber();

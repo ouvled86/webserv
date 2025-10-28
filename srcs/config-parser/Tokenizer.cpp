@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/12 20:55:51 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/14 01:03:47 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/10/28 21:52:44 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,11 +64,24 @@ Token	Tokenizer::getNextToken()
 	}
 	if (c == '"')
 		return parseString();
-	if (isdigit(c))
+	if (isdigit(c) && isValidDigit()) // Need a function to make sure Token is not a word here
 		return parseNumber();
-	if (isalpha(c) || c == '_' || c == '/' || c == '.')
+	if (isdigit(c) || isalpha(c) || c == '_' || c == '/' || c == '.' || c == ':')
 		return parseWord();
 	throw ParseException("Unexpected character", configPath, posInLine, line);
+}
+
+bool	Tokenizer::isValidDigit()
+{
+	size_t	_pos = pos;
+
+	while (config[_pos] != ' ' && config[_pos] != ';' && _pos < config.length())
+	{
+		if (!isdigit(config[_pos]))
+			return false;
+		_pos++;
+	}
+	return true;
 }
 
 void	Tokenizer::skipWhiteSpaces()
@@ -135,7 +148,7 @@ Token	Tokenizer::parseNumber()
 Token	Tokenizer::parseWord()
 {
 	size_t	start = pos;
-	while (pos < config.length() && (isalpha(config[pos]) || config[pos] == '_' || config[pos] == '-' || config[pos] == '.' || config[pos] == '/' || isdigit(config[pos])))
+	while (pos < config.length() && (isdigit(config[pos]) || isalpha(config[pos]) || config[pos] == '_' || config[pos] == '-' || config[pos] == '.' || config[pos] == ':' || config[pos] == '/' || isdigit(config[pos])))
 	{
 		pos++;
 		posInLine++;

@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/09 23:03:55 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/28 15:29:10 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/03 01:18:37 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,6 +16,7 @@
 # include <string>
 # include <map>
 # include <vector>
+# include <cstdlib>
 
 typedef struct	LocationConfig
 {
@@ -47,7 +48,6 @@ typedef struct	ServerConfig
 	std::map<int, std::string>					errorPages;
 	std::string									root;
 	size_t										clientMaxBodySize;
-	bool										firstListen;
 	ServerConfig();
 	LocationConfig								*findLocation(const std::string &path);
 	std::string									getErrorPage(int statusCode) const;

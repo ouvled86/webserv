@@ -1,6 +1,6 @@
 NAME := webserv
 CXX := c++
-CXXFLAGS := #-Wall -Wextra -Werror -std=c++98
+CXXFLAGS := -Wall -Wextra -Werror -std=c++98
 
 # OPTIONAL BUILD FLAGS (FEATURE TOGGLES)
 # These allow you to enable features by setting environment variables
@@ -128,4 +128,4 @@ endef
 # make DEBUG=1 SAN=1 → Debug build with memory checking
 
 # Inspired from: Ajelloul's blog
-# Reference: https://www.perplexity.ai/search/i-m-working-on-a-team-project-f13JB7lmTcm_v4GQFMaXkA
+# Reference: aboubakr-jelloulat.github.io/posts/makefile-complete-guide/

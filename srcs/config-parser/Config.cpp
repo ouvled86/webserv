@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/21 08:28:45 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/28 15:29:35 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/03 01:18:24 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,9 +21,8 @@ LocationConfig::LocationConfig() : path(""), root(""), uploadTo(""), redirectTo(
 	indexes.push_back("index.htm");
 }
 
-ServerConfig::ServerConfig() : root("/var/www/html"), clientMaxBodySize(1048576), firstListen(true)
+ServerConfig::ServerConfig() : root(getenv("PWD")), clientMaxBodySize(1048576)
 {
-	listens.push_back(std::make_pair("0.0.0.0", 80));
 	errorPages[400] = "/error_pages/400.html";
 	errorPages[403] = "/error_pages/403.html";
 	errorPages[404] = "/error_pages/404.html";

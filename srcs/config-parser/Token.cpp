@@ -6,11 +6,11 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/14 00:26:41 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/14 01:03:43 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/04 18:57:00 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../includes/Token.hpp"
+#include "../../includes/config-parser/Token.hpp"
 
 Token::Token()
 {

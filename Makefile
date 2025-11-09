@@ -32,7 +32,7 @@ endif
 # Find all .cpp files in the current directory automatically
 # Example: if current dir has main.cpp, HumanA.cpp, HumanB.cpp
 # then SRCS becomes main.cpp HumanA.cpp HumanB.cpp
-SRCDIR := ./srcs ./srcs/config-parser
+SRCDIR := ./srcs ./srcs/config-parser ./srcs/server
 
 # Tell make where to look for %.cpp prerequisites. This lets the pattern rule
 # below use a plain "%.cpp" prerequisite and still find sources in any of the

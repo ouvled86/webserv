@@ -6,13 +6,13 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/04 19:47:00 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/03 01:18:47 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/05 21:19:12 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../includes/ConfigParser.hpp"
+#include "../../includes/config-parser/ConfigParser.hpp"
 
-ConfigParser::ConfigParser(char *configFile) : _pState(GLOBAL_STATE), _configFileName(configFile)
+ConfigParser::ConfigParser(char *configFile) : _serverCount(0), _pState(GLOBAL_STATE), _configFileName(configFile)
 {
 	_tokenizer = Tokenizer(configFile);
 	_configContent = _tokenizer.getConfig();
@@ -20,7 +20,7 @@ ConfigParser::ConfigParser(char *configFile) : _pState(GLOBAL_STATE), _configFil
 	while ((holder = _tokenizer.getNextToken()).getType() != T_EOF)
 	{
 		_tokens.push_back(holder);
-		std::cout << "Token value is: " << holder.getContent() << " of type: " << holder.getType() << " at line: " << holder.getLine() << ", posInLine: " << holder.getPosInLine() << std::endl;
+		// std::cout << "Token value is: " << holder.getContent() << " of type: " << holder.getType() << " at line: " << holder.getLine() << ", posInLine: " << holder.getPosInLine() << std::endl;
 	}
 }
 
@@ -55,6 +55,7 @@ void ConfigParser::handleGlobalState(std::vector<Token>::const_iterator &it)
 		expectToken(it, T_LEFT_BRACE, "Expected '{' after 'server'");
 		_currentServer = ServerConfig();
 		_pState = SERVER_STATE;
+		_serverCount++;
 	}
 	else
 		throw ParseException("Expected 'server' keyword", _configFileName, token._posInLine, token._line);
@@ -171,13 +172,13 @@ void	ConfigParser::parseListenDirective(std::vector<Token>::const_iterator &it)
 			throw ParseException("Port: " + port + " is out of range, make sure it is between 0 and 65535", _configFileName, (it - 1)->_posInLine, (it - 1)->_line);
 		for (size_t i = 0; i < _allListens.size(); i++)
 		{
-			if (portInt == _allListens[i].second && (_allListens[i].first == "0.0.0.0" || _allListens[i].first == host))
+			if (portInt == _allListens[i].second.second && (_allListens[i].second.first == "0.0.0.0" || _allListens[i].second.first == host))
 				throw ParseException("Port: " + tokenValue + " is duplicated, virtual hosts service isn't implemented yet", _configFileName, (it - 1)->_posInLine, (it - 1)->_line);
 		}
 		if (invalidHostIp(host))
 			throw ParseException("Specified host IP: " + host + " is invalid", _configFileName, (it - 1)->_posInLine, (it - 1)->_line);
 		_currentServer.listens.push_back(std::make_pair(host, portInt));
-		_allListens.push_back(std::make_pair(host, portInt));
+		_allListens.push_back(std::make_pair(_serverCount ,std::make_pair(host, portInt)));
 	}
 	else if (it->_type == T_NUMBER)
 	{
@@ -186,11 +187,11 @@ void	ConfigParser::parseListenDirective(std::vector<Token>::const_iterator &it)
 			throw ParseException("Port: " + tokenValue + " is out of range, make sure it is between 0 and 65535", _configFileName, (it - 1)->_posInLine, (it - 1)->_line);
 		for (size_t i = 0; i < _allListens.size(); i++)
 		{
-			if (portInt == _allListens[i].second)
+			if (portInt == _allListens[i].second.second)
 				throw ParseException("Port: " + tokenValue + " is duplicated, virtual hosts service isn't implemented yet", _configFileName, (it - 1)->_posInLine, (it - 1)->_line);
 		}
 		_currentServer.listens.push_back(std::make_pair("0.0.0.0", portInt));
-		_allListens.push_back(std::make_pair("0.0.0.0", portInt));
+		_allListens.push_back(std::make_pair(_serverCount, std::make_pair("0.0.0.0", portInt)));
 	}
 	++it;
 	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude server's listen directive");
@@ -471,3 +472,14 @@ bool ConfigParser::isExecutable(const std::string& path)
 {
 	return access(path.c_str(), X_OK) == 0;
 }
+
+int	ConfigParser::getServerCount() const
+{
+	return _serverCount;
+}
+
+std::vector<std::pair<int, std::pair<std::string, int> > >	&ConfigParser::getAllListens()
+{
+	return _allListens;
+}
+

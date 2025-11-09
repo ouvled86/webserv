@@ -6,11 +6,11 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/12 20:55:51 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/28 21:52:44 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/04 18:57:05 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../includes/Tokenizer.hpp"
+#include "../../includes/config-parser/Tokenizer.hpp"
 
 Tokenizer::Tokenizer()
 {

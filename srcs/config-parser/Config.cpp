@@ -6,11 +6,11 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/21 08:28:45 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/03 01:18:24 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/04 18:56:40 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../includes/Config.hpp"
+#include "../../includes/config-parser/Config.hpp"
 
 LocationConfig::LocationConfig() : path(""), root(""), uploadTo(""), redirectTo(""), uploadPerm(false), autoIndex(false), redirectionCode(0), clientMaxBodySize(0)
 {

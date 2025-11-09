@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/09 23:03:55 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/03 01:18:37 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/04 19:19:50 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,7 +56,7 @@ typedef struct	ServerConfig
 typedef struct	Config
 {
 	std::vector<ServerConfig>	configs;
-	ServerConfig				*findServer(int port);
+	ServerConfig				*findServer(const std::string &host, int port);
 }				Config;
 
 #endif

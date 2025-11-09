@@ -6,11 +6,11 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/21 16:09:21 by ouvled            #+#    #+#             */
-/*   Updated: 2025/10/28 21:09:14 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/04 18:56:54 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../includes/DirectiveTypes.hpp"
+#include "../../includes/config-parser/DirectiveTypes.hpp"
 
 ServerDirectives	getServerDirective(const std::string &word)
 {

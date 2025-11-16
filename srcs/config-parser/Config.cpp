@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/21 08:28:45 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/04 18:56:40 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/16 01:03:39 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,4 +60,33 @@ std::string	LocationConfig::getRoot(const std::string &serverRoot) const
 	if (!root.empty())
 		return (root);
 	return (serverRoot);
+}
+
+LocationConfig* ServerConfig::findLocation(const std::string &path)
+{
+	LocationConfig*	best = NULL;
+	for (size_t i = 0; i < locations.size(); ++i)
+	{
+		const std::string	&locPath = locations[i].path;
+		if (locPath.empty())
+			continue;
+		if (path.size() >= locPath.size() && path.compare(0, locPath.size(), locPath) == 0)
+		{
+			bool	boundaryOK = (locPath == "/") || path.size() == locPath.size() || path[locPath.size()] == '/';
+			if (boundaryOK)
+			{
+				if (!best || locPath.size() > best->path.size())
+					best = &locations[i];
+			}
+		}
+	}
+	return best;
+}
+
+std::string ServerConfig::getErrorPage(int statusCode) const
+{
+	std::map<int, std::string>::const_iterator	it = errorPages.find(statusCode);
+	if (it != errorPages.end())
+		return it->second;
+	return std::string();
 }

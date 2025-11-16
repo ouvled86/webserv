@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/11/05 19:54:49 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/16 02:27:25 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/16 05:31:19 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,6 +22,107 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sstream>
+#include <algorithm>
+
+std::string	Server::generateSessionId()
+{
+	unsigned char	raw[SESSION_ID_BYTES];
+	int				fd = ::open("/dev/urandom", O_RDONLY);
+	if (fd >= 0)
+	{
+		ssize_t	r = ::read(fd, raw, SESSION_ID_BYTES);
+		::close(fd);
+		if (r == static_cast<ssize_t>(SESSION_ID_BYTES))
+		{
+			std::ostringstream	oss;
+			for (size_t i = 0; i < SESSION_ID_BYTES; ++i)
+			{
+				static const char	*hex = "0123456789abcdef";
+				oss << hex[(raw[i] >> 4) & 0xF] << hex[raw[i] & 0xF];
+			}
+			return oss.str();
+		}
+	}
+	return std::string("");
+}
+
+void	Server::cleanupExpiredSessions()
+{
+	time_t	now = time(NULL);
+	for (std::map<std::string, Session>::iterator it = _sessions.begin(); it != _sessions.end(); )
+	{
+		if (it->second.expiresAt <= now)
+			_sessions.erase(it++);
+		else
+			++it;
+	}
+}
+
+std::map<std::string,std::string>	Server::parseCookies(const std::string &cookieHeader)
+{
+	std::map<std::string,std::string>	result;
+	size_t								pos = 0;
+	while (pos < cookieHeader.size())
+	{
+		size_t		semi = cookieHeader.find(';', pos);
+		std::string	part;
+		if (semi != std::string::npos)
+			part = cookieHeader.substr(pos, semi-pos);
+		else
+			part = cookieHeader.substr(pos, std::string::npos);
+		if (semi == std::string::npos)
+			pos = cookieHeader.size();
+		else
+			pos = semi + 1;
+		size_t		b = 0;
+		while (b < part.size() && (part[b] == ' ' || part[b] == '\t'))
+			++b;
+		size_t		e = part.size();
+		while (e > b && (part[e - 1] == ' ' || part[e - 1] == '\t'))
+			--e;
+		if (b >= e)
+			continue ;
+		std::string	token = part.substr(b, e - b);
+		size_t		eq = token.find('=');
+		if (eq == std::string::npos)
+			continue ;
+		std::string	name = token.substr(0, eq);
+		std::string	value = token.substr(eq+1);
+		if (value.size() >= 2 && value[0] == '"' && value[value.size() - 1] == '"')
+			value = value.substr(1, value.size() - 2);
+		result[name] = value;
+	}
+	return result;
+}
+
+Session*	Server::getOrCreateSession(const std::map<std::string,std::string> &cookies, HttpResponse &resp)
+{
+	cleanupExpiredSessions();
+	std::map<std::string,std::string>::const_iterator	it = cookies.find("sid");
+	if (it != cookies.end())
+	{
+		std::map<std::string, Session>::iterator	sit = _sessions.find(it->second);
+		if (sit != _sessions.end() && sit->second.expiresAt > time(NULL))
+		{
+			sit->second.expiresAt = time(NULL) + SESSION_TTL_SECONDS;
+			return &sit->second;
+		}
+	}
+	std::string	sid = generateSessionId();
+	while (_sessions.find(sid) != _sessions.end())
+		sid = generateSessionId();
+	Session	s;
+	s.id = sid;
+	s.expiresAt = time(NULL) + SESSION_TTL_SECONDS;
+	s.visitCount = 0;
+	s.name = "";
+	_sessions[sid] = s;
+	std::ostringstream	attrs;
+	attrs << "Path=/; HttpOnly; SameSite=Lax; Max-Age=" << SESSION_TTL_SECONDS;
+	resp.addSetCookie("sid", sid, attrs.str());
+	return &_sessions[sid];
+}
 
 Server::Server(Config &config, std::vector<std::pair<int, std::pair<std::string, int> > > allListens, int serverCount) : _conf(config), _allListens(allListens), _serverCount(serverCount)
 {
@@ -170,10 +271,7 @@ void	Server::timeoutChecker()
 	for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
 	{
 		if (currentTime - it->second.timeout > timeout)
-		{
-			std::cout << "Client timeout, socket fd: " << it->first << std::endl;
 			toClose.push_back(it->first);
-		}
 	}
 	for (size_t i = 0; i < toClose.size(); i++)
 		deleteClient(toClose[i]);
@@ -209,7 +307,6 @@ void	Server::deleteClient(int clientFd)
 {
 	_clients.erase(clientFd);
 	close(clientFd);
-	std::cout << "deleting client fd numba: " << clientFd << std::endl;
 }
 
 static bool	readWholeFile(const std::string &path, std::string &out)
@@ -419,7 +516,75 @@ void	Server::handleClientInput(Client &client)
 	{
 		if (HttpParser::parse(client))
 		{
-			HttpResponse	resp;
+			HttpResponse								resp;
+			std::map<std::string,std::string>			cookies;
+			std::map<std::string,std::string>::iterator	hcookie = client.headers.find("cookie");
+			if (hcookie != client.headers.end())
+				cookies = parseCookies(hcookie->second);
+			Session	*session = getOrCreateSession(cookies, resp);
+			if (client.method == "GET" && client.path == "/session-api")
+			{
+				if (session)
+					session->visitCount++;
+				resp.statusCode = 200;
+				resp.reason = httpReason(200);
+				std::ostringstream	body;
+				body << "{\n  \"sid\": \"" << (session? session->id:"") << "\",\n  \"visits\": " << (session? session->visitCount:0) << ",\n  \"name\": \"" << (session? session->name:"") << "\"\n}";
+				resp.body = body.str();
+				resp.headers["Content-Type"] = "application/json";
+				client.responseBuffer = resp.serialize(client.keepAlive);
+				return;
+			}
+			if (client.path == "/session-name")
+			{
+				if (!session)
+				{
+					resp.statusCode = 500;
+					resp.reason = httpReason(500);
+					resp.body = "Session is unavailable";
+					resp.headers["Content-Type"] = "text/plain";
+					client.responseBuffer = resp.serialize(client.keepAlive);
+					return ;
+				}
+				if (client.method == "GET")
+				{
+					resp.statusCode = 200;
+					resp.reason = httpReason(200);
+					std::ostringstream	body;
+					body << "{\n  \"name\": \"" << session->name << "\"\n}";
+					resp.body = body.str();
+					resp.headers["Content-Type"] = "application/json";
+					client.responseBuffer = resp.serialize(client.keepAlive);
+					return ;
+				}
+				if (client.method == "POST")
+				{
+					std::string	raw = client.body;
+					while (!raw.empty() && (raw[0] == ' ' || raw[0] == '\t' || raw[0] == '\r' || raw[0] == '\n'))
+						raw.erase(0, 1);
+					while (!raw.empty() && (raw[raw.size() - 1] == ' ' || raw[raw.size() - 1] == '\t' || raw[raw.size() - 1] == '\r' || raw[raw.size() - 1] == '\n'))
+						raw.erase(raw.size() - 1);
+					if (!raw.empty())
+					{
+						for (size_t i = 0; i < raw.size(); ++i)
+							if (raw[i] == '\r' || raw[i] == '\n')
+								raw[i]=' ';
+					}
+					session->name = raw;
+					resp.statusCode = 200;
+					resp.reason = httpReason(200);
+					resp.body = "OK";
+					resp.headers["Content-Type"] = "text/plain";
+					client.responseBuffer = resp.serialize(client.keepAlive);
+					return ;
+				}
+				resp.statusCode = 405;
+				resp.reason = httpReason(405);
+				resp.headers["Allow"] = "GET, POST";
+				resp.body = "";
+				client.responseBuffer = resp.serialize(client.keepAlive);
+				return ;
+			}
 			ServerConfig	&servConf = client.acceptingSock._sconf;
 			RouteResult		rr = HttpRouter::route(servConf, client.path);
 			LocationConfig	*loc = rr.location;

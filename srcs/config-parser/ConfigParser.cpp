@@ -6,7 +6,7 @@
 /*   By: ouvled <ouvled@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/10/04 19:47:00 by ouvled            #+#    #+#             */
-/*   Updated: 2025/11/05 21:19:12 by ouvled           ###   ########.fr       */
+/*   Updated: 2025/11/16 01:03:51 by ouvled           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,10 +18,7 @@ ConfigParser::ConfigParser(char *configFile) : _serverCount(0), _pState(GLOBAL_S
 	_configContent = _tokenizer.getConfig();
 	Token	holder;
 	while ((holder = _tokenizer.getNextToken()).getType() != T_EOF)
-	{
 		_tokens.push_back(holder);
-		// std::cout << "Token value is: " << holder.getContent() << " of type: " << holder.getType() << " at line: " << holder.getLine() << ", posInLine: " << holder.getPosInLine() << std::endl;
-	}
 }
 
 Config		ConfigParser::parseConfig()
@@ -325,7 +322,7 @@ void	ConfigParser::parseUploadStoreDirective(std::vector<Token>::const_iterator 
 	_currentLocation.uploadTo = it->_content;
 	if (_currentLocation.uploadTo[0] != '/')
 		throw ParseException("Location's upload_path directive value must start with a slash '/'", _configFileName, it->_posInLine, it->_line);
-	if (pathExists(_currentLocation.uploadTo))
+	if (!pathExists(_currentLocation.uploadTo))
 		throw ParseException("Location's upload_path directive value must exist", _configFileName, it->_posInLine, it->_line);
 	++it;
 	expectToken(it, T_SEMI_COLON, "Expected semi-colon ';' to conclude location's upload_path directive");
@@ -482,4 +479,3 @@ std::vector<std::pair<int, std::pair<std::string, int> > >	&ConfigParser::getAll
 {
 	return _allListens;
 }
-

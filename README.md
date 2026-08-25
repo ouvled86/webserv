@@ -1,133 +1,226 @@
-# Project Name: Webserv
+<div align="center">
 
-## Table of Contents
+# 🌐 webserv
 
-- [Project Overview](#project-overview)
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Development](#development)
-- [Changelog](#changelog)
-- [Contributing](#contributing)
-- [License](#license)
+**An HTTP/1.1 compliant web server built from scratch in C++98**
 
-***
+[![42 School](https://img.shields.io/badge/42-School_Project-000000?style=for-the-badge&logo=42&logoColor=white)](https://42.fr)
+[![Language](https://img.shields.io/badge/Language-C++98-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.wikipedia.org/wiki/C%2B%2B)
+[![HTTP](https://img.shields.io/badge/HTTP-1.1-FF6F61?style=for-the-badge)](https://datatracker.ietf.org/doc/html/rfc2616)
 
-## Project Overview
+> *A fully functional web server inspired by NGINX — handling HTTP requests, serving static files, executing CGI scripts, and managing multiple virtual hosts, all with non-blocking I/O.*
 
-A brief description of the project, its goals, and the technologies used.
+</div>
 
-> _Example:_
-> Webserv is a lightweight HTTP/1.0 server implemented in C++98. It is designed to handle basic web requests, serve static files, and provide a foundation for learning about network programming and server architecture.
+---
 
-***
+## ✨ Features
 
-## Features
+| Feature | Description |
+|---|---|
+| 🔄 **Non-blocking I/O** | Single-threaded event loop using `poll()` for efficient multiplexing |
+| 📄 **Static File Serving** | Serves HTML, CSS, JS, images with automatic MIME type detection |
+| ⚙️ **CGI Support** | Executes Python scripts with full environment variable setup |
+| 📤 **File Uploads** | Handles multipart/form-data with configurable upload paths |
+| 🏠 **Virtual Hosting** | Multiple server blocks on the same port via `Host` header |
+| 🔀 **HTTP Redirections** | Configurable 301/302 redirects |
+| 📂 **Directory Listing** | Auto-generated HTML directory index (autoindex) |
+| 🛡️ **Custom Error Pages** | Per-server configurable error pages (400–504) |
+| 🔧 **NGINX-like Config** | Familiar configuration syntax with server and location blocks |
 
-- [ ] HTTP/1.0 protocol support
-- [ ] Static file serving
-- [ ] Configurable server settings
-- [ ] Logging and error handling
-- [ ] Modular codebase for easy extension
-- [ ] (Add more features as you implement them)
+---
 
-***
+## 🏗️ Architecture
 
-## Getting Started
+```
+┌─────────────────────────────────────────────┐
+│              ServerManager                   │
+│         (poll() event loop)                  │
+│                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Server 1 │  │ Server 2 │  │ Server N │   │
+│  │ :8080    │  │ :8443    │  │ :3000    │   │
+│  │          │  │          │  │          │   │
+│  │ Location │  │ Location │  │ Location │   │
+│  │ /        │  │ /api     │  │ /static  │   │
+│  │ /uploads │  │ /cgi-bin │  │ /docs    │   │
+│  └──────────┘  └──────────┘  └──────────┘   │
+│                                              │
+│  ┌──────────────────────────────────────┐    │
+│  │            Client Pool               │    │
+│  │  READ → PARSE → PROCESS → RESPOND   │    │
+│  └──────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+```
+
+### Core Components
+
+| Class | Responsibility |
+|---|---|
+| `ServerManager` | Central event loop — accepts connections, dispatches I/O via `poll()` |
+| `Server` | Virtual server bound to a host:port, manages locations and config |
+| `Client` | Per-connection state machine (reading → parsing → processing → sending) |
+| `HTTPRequest` | Parses method, URI, headers, body (supports chunked encoding) |
+| `HTTPResponse` | Generates responses — static files, directory listings, errors, redirects |
+| `CGI` | Fork/exec pipeline for script execution with timeout handling |
+| `ConfigParser` | Tokenizer + recursive descent parser for NGINX-like config files |
+| `Location` | URL routing with per-path configuration overrides |
+
+---
+
+## ⚙️ Configuration
+
+The server uses an NGINX-inspired configuration format:
+
+```nginx
+server {
+    listen 8080;
+    host 0.0.0.0;
+    server_name localhost;
+    root ./www/default;
+    index index.html;
+    client_max_body_size 10M;
+
+    error_page 404 /errors/404.html;
+    error_page 500 /errors/500.html;
+
+    location / {
+        allowed_methods GET POST;
+        autoindex off;
+    }
+
+    location /uploads {
+        allowed_methods GET POST DELETE;
+        upload_path ./www/uploads;
+        client_max_body_size 50M;
+    }
+
+    location /cgi-bin {
+        allowed_methods GET POST;
+        cgi_path /usr/bin/python3;
+        cgi_ext .py;
+    }
+
+    location /redirect {
+        return 301 http://example.com;
+    }
+}
+```
+
+### Directives Reference
+
+| Directive | Scope | Description |
+|---|---|---|
+| `listen` | server | Port to bind to |
+| `host` | server | Host/IP address |
+| `server_name` | server | Virtual server hostname |
+| `root` | server/location | Document root directory |
+| `index` | server/location | Default index file |
+| `client_max_body_size` | server/location | Maximum request body size |
+| `error_page` | server | Custom error page mapping |
+| `allowed_methods` | location | Permitted HTTP methods |
+| `autoindex` | location | Directory listing (on/off) |
+| `upload_path` | location | Upload destination directory |
+| `cgi_path` | location | Path to CGI interpreter |
+| `cgi_ext` | location | CGI script file extension |
+| `return` | location | HTTP redirect (code + URL) |
+
+---
+
+## 🏗️ Build & Run
 
 ### Prerequisites
 
-- C++98 compatible compiler (e.g., g++)
-- `make` utility
+- **Compiler**: `c++` with C++98 support
+- **OS**: Linux / macOS
 
+### Compile
 
-### Build Instructions
-
-```sh
+```bash
+git clone https://github.com/ouvled86/webserv.git
+cd webserv
 make
 ```
 
+### Launch
 
-### Running the Server
+```bash
+# Start with default configuration
+./webserv config/default.conf
 
-```sh
-./webserv [config_file]
+# Access in browser
+open http://localhost:8080
 ```
 
+---
 
-***
+## 🌐 Supported HTTP Features
 
-## Usage
+### Methods
+- **GET** — Static file serving, directory listing, CGI execution
+- **POST** — File uploads (multipart/form-data), CGI, URL-encoded data
+- **DELETE** — File deletion with proper status codes
 
-- Place your static files in the designated directory (see configuration).
-- Access the server via your browser or tools like `curl`:
+### Protocol
+- HTTP/1.1 compliant (partial)
+- Chunked transfer encoding
+- Keep-alive connections
+- Cookie passthrough to CGI
+- Proper status codes and reason phrases
 
-```sh
-curl http://localhost:8080/
-```
+---
 
-- (Add more usage examples as features are added)
-
-***
-
-## Configuration
-
-- The server can be configured via a configuration file (describe the format and options here).
-- _Example:_
-
-```
-port: 8080
-root: ./www
-log: ./logs/server.log
-```
-
-- (Expand this section as your configuration options grow)
-
-***
-
-## Development
-
-### Code Style
-
-- Follow the [CODING_STANDARDS.md](./README_DOCS/CODING_STANDARDS.md) for code style and commit requirements.
-- Use the provided pre-commit hooks for consistency.
-
-
-### Project Structure
+## 📁 Project Structure
 
 ```
 webserv/
-├── src/
-├── include/
-├── www/
-├── tests/
 ├── Makefile
-├── README.md
-└── NORM.md
+├── config/
+│   └── default.conf              # Server configuration file
+├── includes/
+│   ├── webserv.hpp               # Common includes & defines
+│   ├── ServerManager.hpp         # Event loop manager
+│   ├── Server.hpp                # Virtual server class
+│   ├── Client.hpp                # Client connection handler
+│   ├── HTTPRequest.hpp           # Request parser
+│   ├── HTTPResponse.hpp          # Response generator
+│   ├── CGI.hpp                   # CGI executor
+│   ├── ConfigParser.hpp          # Configuration parser
+│   ├── Location.hpp              # URL routing rules
+│   └── StatusCode.hpp            # HTTP status code mapping
+├── srcs/
+│   ├── main.cpp                  # Entry point
+│   ├── ServerManager.cpp         # poll() event loop
+│   ├── Server.cpp                # Server socket setup
+│   ├── Client.cpp                # Client state machine
+│   ├── HTTPRequest.cpp           # Request parsing logic
+│   ├── HTTPResponse.cpp          # Response generation
+│   ├── CGI.cpp                   # Fork/exec CGI handling
+│   ├── ConfigParser.cpp          # Config tokenizer & parser
+│   ├── ConfigParser_validate.cpp # Config validation
+│   ├── Location.cpp              # Location matching
+│   └── StatusCode.cpp            # Status code registry
+└── www/
+    ├── cgi-bin/                   # CGI scripts (Python)
+    │   ├── env.py                 # Environment variable dumper
+    │   ├── post.py                # POST data handler
+    │   └── upload.py              # File upload processor
+    ├── default/                   # Default server root
+    │   └── index.html
+    ├── errors/                    # Custom error pages
+    │   ├── 400.html ... 504.html
+    │   └── styles.css
+    ├── test/                      # Test pages
+    │   ├── index.html
+    │   ├── upload.html
+    │   └── cookies.html
+    └── uploads/                   # Upload destination
 ```
 
+---
 
-### Adding Features
+<div align="center">
 
-- List new features in the [Features](#features) section.
-- Document any new configuration options or usage changes.
+Made with ☕ at **[1337 School](https://1337.ma)** (42 Network)
 
-***
-
-## Changelog
-
-- Use this section to track major changes, bug fixes, and new features.
-- _Example:_
-    - **2025-10-03:** Project initialized
-    - **2025-10-10:** Added static file serving
-    - (Continue updating as the project evolves)
-
-***
-
-## Contributing
-
-- Fork the repository and create a feature branch.
-- Follow the code style and commit message guidelines.
-- Open a pull request and request review from teammates.
-- All code must pass the pre-commit checks and be reviewed before merging.
+</div>
